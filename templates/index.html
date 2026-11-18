@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetPulse | Network Security & Packet Analyzer</title>
+    <title>NetPulse | Network Traffic & PCAP Analyzer</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
         .mono { font-family: 'JetBrains Mono', monospace; }
@@ -13,119 +14,551 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between">
     <!-- Header -->
-    <header class="border-b border-slate-800/80 bg-slate-900/50 backdrop-blur sticky top-0 z-50">
+    <header class="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <div class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">NetPulse // Dashboard</span>
+                <div id="status-dot" class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></div>
+                <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">NetPulse // Traffic & PCAP Analyzer</span>
             </div>
-            <div class="flex items-center space-x-4 text-sm text-slate-400">
-                <span class="mono text-xs px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700/50">Target: localhost:5000</span>
-                <span class="h-4 w-px bg-slate-800"></span>
-                <a href="https://github.com" target="_blank" class="hover:text-white transition">GitHub Portfolio</a>
+            <div class="flex items-center space-x-3 text-xs text-slate-400">
+                <span id="active-file-badge" class="mono px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700/60">Mode: Demo Data</span>
             </div>
         </div>
     </header>
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-6 py-10 w-full space-y-8">
-        <!-- Hero section -->
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-                <h1 class="text-3xl font-bold tracking-tight text-white">System & Traffic Overview</h1>
-                <p class="text-slate-400 mt-1">Real-time packet telemetry and system health monitor.</p>
+    <main class="max-w-7xl mx-auto px-6 py-8 w-full space-y-6">
+        <!-- Mode Switcher & Control Card -->
+        <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-5">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight text-white">Pemantauan Trafik Lokal & Analisis PCAP</h1>
+                    <p class="text-slate-400 text-sm mt-1">Tangkap lalu lintas jaringan lokal secara langsung atau unggah file dump Wireshark (<span class="mono text-slate-300">.pcap</span>, <span class="mono text-slate-300">.pcapng</span>).</p>
+                </div>
+
+                <!-- Mode Tabs -->
+                <div class="inline-flex p-1 bg-slate-950 border border-slate-800 rounded-xl self-start">
+                    <button type="button" id="tab-live" onclick="switchMode('live')" class="px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white transition">
+                        Live Capture Lokal
+                    </button>
+                    <button type="button" id="tab-pcap" onclick="switchMode('pcap')" class="px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition">
+                        Upload File PCAP
+                    </button>
+                    <button type="button" onclick="loadDemoData()" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 transition">
+                        Reset Demo
+                    </button>
+                </div>
             </div>
-            <button onclick="fetchStats()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-xl border border-slate-700/60 transition shadow-sm active:scale-95 flex items-center justify-center space-x-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                <span>Refresh Data</span>
-            </button>
+
+            <!-- Live Capture Form -->
+            <form id="live-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2 border-t border-slate-800/80">
+                <div class="lg:col-span-2">
+                    <label class="block text-[11px] uppercase tracking-wider text-slate-400 mb-1">Interface Jaringan</label>
+                    <select id="iface-select" class="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs mono text-slate-200 focus:outline-none focus:border-blue-500">
+                        <option value="">Default Interface (Otomatis)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] uppercase tracking-wider text-slate-400 mb-1">Durasi (Detik)</label>
+                    <input type="number" id="capture-duration" value="5" min="1" max="30" class="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs mono text-slate-200 focus:outline-none focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] uppercase tracking-wider text-slate-400 mb-1">Maks. Paket</label>
+                    <input type="number" id="capture-count" value="100" min="1" max="500" class="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs mono text-slate-200 focus:outline-none focus:border-blue-500">
+                </div>
+
+                <div class="flex items-end">
+                    <button type="submit" id="sniff-btn" class="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition shadow-sm active:scale-95 disabled:opacity-50">
+                        Mulai Sniffing
+                    </button>
+                </div>
+
+                <div class="sm:col-span-2 lg:col-span-5">
+                    <input type="text" id="bpf-filter" placeholder="Opsional: BPF Filter (contoh: tcp port 80, icmp, host 192.168.1.1)" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs mono text-slate-300 focus:outline-none focus:border-blue-500">
+                </div>
+            </form>
+
+            <!-- Upload PCAP Form -->
+            <form id="upload-form" class="hidden flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2 border-t border-slate-800/80">
+                <label class="flex-1 flex items-center justify-between px-4 py-2.5 bg-slate-950 border border-slate-700/80 hover:border-blue-500/70 rounded-xl cursor-pointer transition text-sm text-slate-300">
+                    <span id="file-label" class="truncate mono text-xs">Pilih file .pcap / .pcapng / .cap (maks 32 MB)...</span>
+                    <span class="text-xs text-blue-400 font-medium ml-3">Browse</span>
+                    <input type="file" id="pcap-input" name="pcap_file" accept=".pcap,.pcapng,.cap" class="hidden">
+                </label>
+                <button type="submit" id="analyze-btn" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition shadow-sm active:scale-95 disabled:opacity-50">
+                    Analisis File PCAP
+                </button>
+            </form>
         </div>
 
-        <!-- Metrics Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <!-- CPU -->
-            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 backdrop-blur">
-                <div class="text-sm font-medium text-slate-400">CPU Usage</div>
-                <div class="text-3xl font-bold mt-2 mono text-white" id="cpu-val">--%</div>
-                <div class="mt-4 w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                    <div id="cpu-bar" class="bg-blue-500 h-full transition-all duration-500" style="width: 0%"></div>
-                </div>
+        <!-- Error Alert -->
+        <div id="error-banner" class="hidden bg-rose-950/70 border border-rose-700/60 text-rose-200 px-4 py-3 rounded-xl text-xs mono"></div>
+
+        <!-- Summary Metrics Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5">
+                <div class="text-xs uppercase tracking-wider font-semibold text-slate-400">Total Paket</div>
+                <div class="text-3xl font-bold mt-2 mono text-white" id="stat-packets">0</div>
+                <div class="mt-2 text-xs text-slate-400 mono" id="stat-bytes">0 Bytes (0.00 s)</div>
             </div>
 
-            <!-- Memory -->
-            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 backdrop-blur">
-                <div class="text-sm font-medium text-slate-400">Memory Usage</div>
-                <div class="text-3xl font-bold mt-2 mono text-white" id="mem-val">--%</div>
-                <div class="mt-4 w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                    <div id="mem-bar" class="bg-indigo-500 h-full transition-all duration-500" style="width: 0%"></div>
-                </div>
+            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5">
+                <div class="text-xs uppercase tracking-wider font-semibold text-slate-400">Rata-rata Trafik</div>
+                <div class="text-3xl font-bold mt-2 mono text-blue-400" id="stat-pps">0 pkt/s</div>
+                <div class="mt-2 text-xs text-slate-400">Kecepatan paket per detik</div>
             </div>
 
-            <!-- Latency -->
-            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 backdrop-blur">
-                <div class="text-sm font-medium text-slate-400">Network Latency</div>
-                <div class="text-3xl font-bold mt-2 mono text-white" id="lat-val">-- ms</div>
-                <div class="mt-4 text-xs text-emerald-400 font-medium flex items-center space-x-1">
-                    <span>Optimal Connection</span>
-                </div>
+            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5">
+                <div class="text-xs uppercase tracking-wider font-semibold text-slate-400">Host / IP Unik</div>
+                <div class="text-3xl font-bold mt-2 mono text-indigo-400" id="stat-ips">0</div>
+                <div class="mt-2 text-xs text-slate-400">Sumber & tujuan terdeteksi</div>
             </div>
 
-            <!-- Status -->
-            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 backdrop-blur">
-                <div class="text-sm font-medium text-slate-400">Security Status</div>
-                <div class="text-2xl font-bold mt-2 mono text-emerald-400" id="status-val">SECURE</div>
-                <div class="mt-4 text-xs text-slate-400">Zero anomalies detected</div>
+            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5">
+                <div class="text-xs uppercase tracking-wider font-semibold text-slate-400">Status Keamanan</div>
+                <div class="text-3xl font-bold mt-2 mono text-emerald-400" id="stat-status">SECURE</div>
+                <div class="mt-2 text-xs text-slate-400" id="stat-anomaly-count">0 anomali terdeteksi</div>
             </div>
         </div>
 
-        <!-- Terminal / Log Section -->
-        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-base font-semibold text-white">Live Packet Feed & Logs</h3>
-                <span class="text-xs text-slate-500 mono">Auto-updating every 3s</span>
+        <!-- Anomaly Detection Panel -->
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                <h2 class="text-base font-semibold text-white">Deteksi Anomali & Peringatan Trafik</h2>
+                <span class="text-xs text-slate-400 mono">Rules: Traffic Spike, Port Scan, SYN Flood, ARP Storm</span>
             </div>
-            <div class="bg-slate-950 border border-slate-800/80 rounded-xl p-4 mono text-xs text-slate-300 h-48 overflow-y-auto space-y-2" id="log-box">
-                <div class="text-slate-500">[00:00:00] Initializing NetPulse packet capture daemon...</div>
-                <div class="text-slate-500">[00:00:01] Binding interface to local bridge... ready.</div>
+            <div id="anomaly-list" class="space-y-3">
+                <div class="text-sm text-emerald-400 bg-emerald-950/30 border border-emerald-800/40 rounded-xl px-4 py-3">
+                    Tidak ditemukan lonjakan trafik atau pola serangan mencurigakan.
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6">
+                <h2 class="text-base font-semibold text-white mb-4">Grafik Volume Trafik (Paket / Detik)</h2>
+                <div class="h-64">
+                    <canvas id="trafficChart"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6">
+                <h2 class="text-base font-semibold text-white mb-4">Distribusi Protokol</h2>
+                <div class="h-64">
+                    <canvas id="protocolChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Talkers -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6">
+                <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-3">Top Source IP</h3>
+                <div id="top-sources" class="space-y-2 mono text-xs"></div>
+            </div>
+            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6">
+                <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-3">Top Destination IP</h3>
+                <div id="top-destinations" class="space-y-2 mono text-xs"></div>
+            </div>
+        </div>
+
+        <!-- Packet Activity Log Table -->
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div>
+                    <h2 class="text-base font-semibold text-white">Log Aktivitas Paket Jaringan</h2>
+                    <p class="text-xs text-slate-400">Menampilkan hingga 250 paket pertama hasil tangkapan</p>
+                </div>
+                <input type="text" id="log-filter" onkeyup="filterLogs()" placeholder="Filter IP atau protokol (mis. TCP, 192.168)..." class="px-3.5 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs mono text-slate-200 focus:outline-none focus:border-blue-500 w-full sm:w-72">
+            </div>
+
+            <div class="overflow-x-auto max-h-96 border border-slate-800 rounded-xl">
+                <table class="w-full text-left border-collapse mono text-xs">
+                    <thead class="bg-slate-950 text-slate-400 sticky top-0">
+                        <tr>
+                            <th class="py-2.5 px-3 border-b border-slate-800">No</th>
+                            <th class="py-2.5 px-3 border-b border-slate-800">Waktu</th>
+                            <th class="py-2.5 px-3 border-b border-slate-800">Source IP</th>
+                            <th class="py-2.5 px-3 border-b border-slate-800">Destination IP</th>
+                            <th class="py-2.5 px-3 border-b border-slate-800">Protokol</th>
+                            <th class="py-2.5 px-3 border-b border-slate-800">Length</th>
+                            <th class="py-2.5 px-3 border-b border-slate-800">Info</th>
+                        </tr>
+                    </thead>
+                    <tbody id="packet-log-body" class="divide-y divide-slate-800/60 bg-slate-950/40"></tbody>
+                </table>
             </div>
         </div>
     </main>
 
-    <!-- Footer -->
     <footer class="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
-        Crafted with precision for developer portfolios. Open source & MIT License.
+        NetPulse Network Traffic & PCAP Analyzer &copy; 2026
     </footer>
 
     <script>
-        function fetchStats() {
-            fetch('/api/stats')
-                .then(res => res.json())
-                .then(data => {
-                    document.getElementById('cpu-val').innerText = data.cpu_usage + '%';
-                    document.getElementById('cpu-bar').style.width = data.cpu_usage + '%';
-                    
-                    document.getElementById('mem-val').innerText = data.memory_usage + '%';
-                    document.getElementById('mem-bar').style.width = data.memory_usage + '%';
-                    
-                    document.getElementById('lat-val').innerText = data.network_latency + ' ms';
-                    
-                    const statusEl = document.getElementById('status-val');
-                    statusEl.innerText = data.status;
+        let trafficChartInstance = null;
+        let protocolChartInstance = null;
+        let currentLogs = [];
 
-                    // Append log
-                    const logBox = document.getElementById('log-box');
-                    const timeNow = new Date().toLocaleTimeString();
-                    const logEntry = document.createElement('div');
-                    logEntry.innerHTML = '<span class="text-slate-500">[' + timeNow + ']</span> Packet sync OK â€” CPU: ' + data.cpu_usage + '% | Latency: ' + data.network_latency + 'ms';
-                    logBox.appendChild(logEntry);
-                    logBox.scrollTop = logBox.scrollHeight;
-                })
-                .catch(err => console.error('Error fetching stats:', err));
+        function switchMode(mode) {
+            const liveForm = document.getElementById('live-form');
+            const uploadForm = document.getElementById('upload-form');
+            const tabLive = document.getElementById('tab-live');
+            const tabPcap = document.getElementById('tab-pcap');
+            hideError();
+
+            if (mode === 'live') {
+                liveForm.classList.remove('hidden');
+                uploadForm.classList.add('hidden');
+                tabLive.className = 'px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white transition';
+                tabPcap.className = 'px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition';
+            } else {
+                liveForm.classList.add('hidden');
+                uploadForm.classList.remove('hidden');
+                tabPcap.className = 'px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white transition';
+                tabLive.className = 'px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition';
+            }
         }
 
-        // Poll every 3 seconds
-        setInterval(fetchStats, 3000);
-        window.onload = fetchStats;
+        async function fetchInterfaces() {
+            try {
+                const res = await fetch('/api/interfaces');
+                const data = await res.json();
+                const select = document.getElementById('iface-select');
+                if (data.interfaces && data.interfaces.length > 0) {
+                    data.interfaces.forEach(iface => {
+                        const opt = document.createElement('option');
+                        opt.value = iface;
+                        opt.textContent = iface;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (err) {
+                console.warn('Tidak dapat memuat daftar interface:', err);
+            }
+        }
+
+        document.getElementById('live-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError();
+
+            const btn = document.getElementById('sniff-btn');
+            const dot = document.getElementById('status-dot');
+            const duration = document.getElementById('capture-duration').value;
+            const count = document.getElementById('capture-count').value;
+            const iface = document.getElementById('iface-select').value;
+            const bpfFilter = document.getElementById('bpf-filter').value;
+
+            btn.disabled = true;
+            btn.innerText = `Menangkap (${duration}s)...`;
+            dot.className = 'w-3 h-3 rounded-full bg-amber-400 animate-ping';
+
+            try {
+                const res = await fetch('/api/live-capture', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        interface: iface,
+                        duration: parseInt(duration, 10),
+                        count: parseInt(count, 10),
+                        bpf_filter: bpfFilter
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    showError(data.error || 'Gagal menangkap paket jaringan lokal.');
+                } else {
+                    document.getElementById('active-file-badge').innerText = data.source_label || 'Live Capture';
+                    renderDashboard(data);
+                }
+            } catch (err) {
+                showError('Gagal terhubung ke endpoint live capture Flask.');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Mulai Sniffing';
+                dot.className = 'w-3 h-3 rounded-full bg-emerald-500 animate-pulse';
+            }
+        });
+
+        const pcapInput = document.getElementById('pcap-input');
+        pcapInput.addEventListener('change', () => {
+            const file = pcapInput.files[0];
+            document.getElementById('file-label').innerText = file ? file.name : 'Pilih file .pcap / .pcapng / .cap (maks 32 MB)...';
+        });
+
+        document.getElementById('upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const file = pcapInput.files[0];
+            if (!file) {
+                showError('Silakan pilih file .pcap atau .pcapng terlebih dahulu.');
+                return;
+            }
+
+            hideError();
+            const btn = document.getElementById('analyze-btn');
+            btn.disabled = true;
+            btn.innerText = 'Menganalisis...';
+
+            const formData = new FormData();
+            formData.append('pcap_file', file);
+
+            try {
+                const res = await fetch('/api/analyze-pcap', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (!res.ok) {
+                    showError(data.error || 'Terjadi kesalahan saat menganalisis file PCAP.');
+                } else {
+                    document.getElementById('active-file-badge').innerText = data.source_label || ('File: ' + file.name);
+                    renderDashboard(data);
+                }
+            } catch (err) {
+                showError('Gagal terhubung ke server Flask.');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Analisis File PCAP';
+            }
+        });
+
+        function showError(msg) {
+            const el = document.getElementById('error-banner');
+            el.innerText = msg;
+            el.classList.remove('hidden');
+        }
+
+        function hideError() {
+            document.getElementById('error-banner').classList.add('hidden');
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function renderDashboard(data) {
+            document.getElementById('stat-packets').innerText = data.summary.total_packets.toLocaleString();
+            document.getElementById('stat-bytes').innerText = `${formatBytes(data.summary.total_bytes)} (${data.summary.duration_sec}s)`;
+            document.getElementById('stat-pps').innerText = `${data.summary.avg_pps} pkt/s`;
+            document.getElementById('stat-ips').innerText = data.summary.unique_ips;
+
+            const statusEl = document.getElementById('stat-status');
+            statusEl.innerText = data.summary.status;
+            statusEl.className = 'text-3xl font-bold mt-2 mono ' + (
+                data.summary.status === 'ALERT' ? 'text-rose-400' :
+                data.summary.status === 'WARNING' ? 'text-amber-400' :
+                data.summary.status === 'EMPTY' ? 'text-slate-400' : 'text-emerald-400'
+            );
+            document.getElementById('stat-anomaly-count').innerText = `${data.anomalies.length} anomali terdeteksi`;
+
+            const anomalyList = document.getElementById('anomaly-list');
+            if (data.anomalies.length === 0) {
+                anomalyList.innerHTML = `<div class="text-sm text-emerald-400 bg-emerald-950/30 border border-emerald-800/40 rounded-xl px-4 py-3">Tidak ditemukan lonjakan trafik atau pola serangan mencurigakan.</div>`;
+            } else {
+                anomalyList.innerHTML = data.anomalies.map(a => {
+                    const badgeStyle = a.severity === 'HIGH'
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                        : 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+                    return `
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="mono text-xs px-2 py-0.5 rounded border ${badgeStyle}">${a.severity}</span>
+                                    <span class="font-semibold text-sm text-white">${a.type}</span>
+                                    <span class="mono text-xs text-slate-400">(${a.source})</span>
+                                </div>
+                                <p class="text-xs text-slate-300">${a.detail}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            renderTalkers('top-sources', data.top_sources, data.summary.total_packets, 'bg-blue-500');
+            renderTalkers('top-destinations', data.top_destinations, data.summary.total_packets, 'bg-indigo-500');
+            renderTrafficChart(data.traffic_timeline);
+            renderProtocolChart(data.protocols);
+
+            currentLogs = data.logs;
+            document.getElementById('log-filter').value = '';
+            renderLogTable(currentLogs);
+        }
+
+        function renderTalkers(elementId, list, totalPackets, barColor) {
+            const container = document.getElementById(elementId);
+            if (!list || list.length === 0) {
+                container.innerHTML = '<div class="text-slate-500">Tidak ada data IP.</div>';
+                return;
+            }
+            container.innerHTML = list.map(item => {
+                const pct = totalPackets > 0 ? Math.round((item.count / totalPackets) * 100) : 0;
+                return `
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-slate-300">
+                            <span>${item.ip}</span>
+                            <span>${item.count} pkt (${pct}%)</span>
+                        </div>
+                        <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                            <div class="${barColor} h-full" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderTrafficChart(timeline) {
+            const ctx = document.getElementById('trafficChart').getContext('2d');
+            if (trafficChartInstance) trafficChartInstance.destroy();
+
+            trafficChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timeline.map(t => t.label),
+                    datasets: [{
+                        label: 'Paket / Detik',
+                        data: timeline.map(t => t.packets),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8', maxTicksLimit: 8 }, grid: { color: 'rgba(51, 65, 85, 0.3)' } },
+                        y: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(51, 65, 85, 0.3)' } }
+                    }
+                }
+            });
+        }
+
+        function renderProtocolChart(protocols) {
+            const ctx = document.getElementById('protocolChart').getContext('2d');
+            if (protocolChartInstance) protocolChartInstance.destroy();
+
+            const labels = Object.keys(protocols);
+            const values = Object.values(protocols);
+            const colors = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#64748b'];
+
+            protocolChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: colors.slice(0, labels.length),
+                        borderColor: '#0f172a',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#cbd5e1', font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+
+        function renderLogTable(logs) {
+            const tbody = document.getElementById('packet-log-body');
+            if (!logs || logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-slate-500">Tidak ada paket untuk ditampilkan.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = logs.map(row => `
+                <tr class="hover:bg-slate-800/40 transition">
+                    <td class="py-2 px-3 text-slate-500">${row.no}</td>
+                    <td class="py-2 px-3 text-slate-400">${row.time}</td>
+                    <td class="py-2 px-3 text-slate-200">${row.src}</td>
+                    <td class="py-2 px-3 text-slate-200">${row.dst}</td>
+                    <td class="py-2 px-3"><span class="px-2 py-0.5 rounded bg-slate-800 text-blue-300">${row.protocol}</span></td>
+                    <td class="py-2 px-3 text-slate-400">${row.length} B</td>
+                    <td class="py-2 px-3 text-slate-300 truncate max-w-xs">${row.info}</td>
+                </tr>
+            `).join('');
+        }
+
+        function filterLogs() {
+            const q = document.getElementById('log-filter').value.toLowerCase();
+            const filtered = currentLogs.filter(row =>
+                row.src.toLowerCase().includes(q) ||
+                row.dst.toLowerCase().includes(q) ||
+                row.protocol.toLowerCase().includes(q) ||
+                row.info.toLowerCase().includes(q)
+            );
+            renderLogTable(filtered);
+        }
+
+        function loadDemoData() {
+            document.getElementById('active-file-badge').innerText = 'Mode: Demo Data';
+            hideError();
+            renderDashboard({
+                summary: {
+                    total_packets: 1420,
+                    total_bytes: 984320,
+                    duration_sec: 12.0,
+                    avg_pps: 118.33,
+                    unique_ips: 14,
+                    status: 'ALERT'
+                },
+                protocols: { 'HTTPS/TLS': 640, 'TCP': 380, 'DNS': 210, 'UDP': 135, 'ICMP': 35, 'ARP': 20 },
+                top_sources: [
+                    { ip: '192.168.1.105', count: 520 },
+                    { ip: '192.168.1.12', count: 310 },
+                    { ip: '10.0.0.45', count: 245 }
+                ],
+                top_destinations: [
+                    { ip: '142.250.190.78', count: 480 },
+                    { ip: '192.168.1.1', count: 360 },
+                    { ip: '8.8.8.8', count: 210 }
+                ],
+                traffic_timeline: [
+                    { label: '19:10:01', packets: 45 },
+                    { label: '19:10:02', packets: 52 },
+                    { label: '19:10:03', packets: 48 },
+                    { label: '19:10:04', packets: 410 },
+                    { label: '19:10:05', packets: 390 },
+                    { label: '19:10:06', packets: 65 },
+                    { label: '19:10:07', packets: 58 }
+                ],
+                anomalies: [
+                    {
+                        severity: 'HIGH',
+                        type: 'Traffic Spike',
+                        source: 'Multiple / Burst',
+                        detail: 'Lonjakan trafik terdeteksi pada 19:10:04 (410 pkt/s vs rata-rata 152.6 pkt/s).'
+                    },
+                    {
+                        severity: 'MEDIUM',
+                        type: 'SYN Burst / Flood',
+                        source: '192.168.1.105',
+                        detail: 'IP 192.168.1.105 mengirim 38 paket TCP SYN tanpa ACK (indikasi SYN flood atau scan agresif).'
+                    }
+                ],
+                logs: [
+                    { no: 1, time: '19:10:01.104', src: '192.168.1.12', dst: '8.8.8.8', protocol: 'DNS', length: 74, info: '54312 -> 53 Len=74' },
+                    { no: 2, time: '19:10:01.142', src: '8.8.8.8', dst: '192.168.1.12', protocol: 'DNS', length: 118, info: '53 -> 54312 Len=118' },
+                    { no: 3, time: '19:10:02.310', src: '192.168.1.12', dst: '142.250.190.78', protocol: 'HTTPS/TLS', length: 1420, info: '51822 -> 443 [Flags: PA] Len=1420' },
+                    { no: 4, time: '19:10:04.008', src: '192.168.1.105', dst: '192.168.1.1', protocol: 'TCP', length: 60, info: '40112 -> 22 [Flags: S] Len=60' },
+                    { no: 5, time: '19:10:04.011', src: '192.168.1.105', dst: '192.168.1.1', protocol: 'TCP', length: 60, info: '40113 -> 80 [Flags: S] Len=60' }
+                ]
+            });
+        }
+
+        window.onload = () => {
+            fetchInterfaces();
+            loadDemoData();
+        };
     </script>
 </body>
 </html>
