@@ -1,13 +1,14 @@
 # NetPulse // Network Security & Packet Telemetry Dashboard
 
-A clean, modern, and lightweight real-time system and network monitoring dashboard built with **Python (Flask)** and **Tailwind CSS**. Designed as a professional portfolio piece highlighting backend telemetry simulation and sleek frontend design.
+Aplikasi web modern dan ringan untuk memantau lalu lintas jaringan, analisis keamanan, dan telemetri sistem secara real-time yang dibangun dengan **Python (Flask)** dan **Tailwind CSS**.
 
-## Features
+## Features & Capabilities
 
 - **Real-Time Telemetry:** Live simulation of CPU usage, memory allocation, network latency, and security status.
 - **Dynamic Logging Terminal:** Auto-scrolling simulated packet capture log feed.
 - **Modern Dark UI:** Crafted with Tailwind CSS, custom typography (JetBrains Mono & Plus Jakarta Sans), and glassmorphism styling.
 - **RESTful API Endpoint:** Clean JSON API structure (`/api/stats`) ready for expansion with real packet analysis libraries (e.g., Scapy).
+- **Network Packet & Security Log Monitoring:** Pemantauan statistik paket data dan log aktivitas jaringan.
 
 ## Tech Stack
 
@@ -18,8 +19,8 @@ A clean, modern, and lightweight real-time system and network monitoring dashboa
 
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/yourusername/netpulse.git](https://github.com/yourusername/netpulse.git)
-   cd netpulse
+   git clone [https://github.com/Iqbalarbani/Network-Packet-Analyzer-Security-Log-Dashboard.git](https://github.com/Iqbalarbani/Network-Packet-Analyzer-Security-Log-Dashboard.git)
+   cd Network-Packet-Analyzer-Security-Log-Dashboard
    ```
 
 2. **Install dependencies:**
@@ -37,4 +38,4 @@ A clean, modern, and lightweight real-time system and network monitoring dashboa
 
 ## License
 
-MIT License Â© 2026
+MIT License Ã‚Â© 2026
